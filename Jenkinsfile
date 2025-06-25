@@ -56,6 +56,17 @@ pipeline {
                     script {
                         if (params.action == 'apply') {
                             sh '''
+                                echo "=== Pre-deployment Setup ==="
+                                # Create key pair if it doesn't exist
+                                if ! aws ec2 describe-key-pairs --key-names my-key-aws --region ap-south-1 >/dev/null 2>&1; then
+                                    echo "Creating key pair 'my-key-aws'..."
+                                    aws ec2 create-key-pair --key-name my-key-aws --region ap-south-1 --query 'KeyMaterial' --output text > my-key-aws.pem
+                                    chmod 400 my-key-aws.pem
+                                    echo "Key pair created successfully!"
+                                else
+                                    echo "Key pair 'my-key-aws' already exists."
+                                fi
+                                
                                 echo "=== Terraform Apply ==="
                                 cd terraform/
                                 terraform apply tfplan

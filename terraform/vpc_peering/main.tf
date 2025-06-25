@@ -2,7 +2,6 @@ data "aws_vpc" "default_vpc" {
   default = true
 }
 
-
 resource "aws_vpc_peering_connection" "vpc_peering" {
   vpc_id        = data.aws_vpc.default_vpc.id              
   peer_vpc_id   = var.vpc_id        
@@ -22,14 +21,18 @@ data "aws_route_table" "default_RT" {
   filter {
     name = "association.main"
     values = [ "true" ]
-
   }
 }
 
 resource "aws_route" "default_rt" {
-route_table_id = data.aws_route_table.default_RT.id
-destination_cidr_block = var.vpc_cidr
-vpc_peering_connection_id = aws_vpc_peering_connection.vpc_peering.id
+  route_table_id            = data.aws_route_table.default_RT.id
+  destination_cidr_block    = var.vpc_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc_peering.id
+
+  lifecycle {
+    ignore_changes = [route_table_id]
+    create_before_destroy = true
+  }
 }
 
 data "aws_security_group" "default_sg" {

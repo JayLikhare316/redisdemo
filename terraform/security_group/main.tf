@@ -3,10 +3,15 @@ data "aws_vpc" "default" {
   default = true
 }
 
+# Random suffix to avoid naming conflicts
+resource "random_id" "sg_suffix" {
+  byte_length = 4
+}
+
 # Default VPC Security Group
 resource "aws_security_group" "default_vpc_sg" {
   vpc_id = data.aws_vpc.default.id
-  name   = "default-vpc-sg"
+  name   = "default-vpc-sg-${random_id.sg_suffix.hex}"
   
   # Allow inbound traffic from the custom VPC
   ingress {
@@ -22,6 +27,10 @@ resource "aws_security_group" "default_vpc_sg" {
     to_port     = 0
     protocol    = "-1"        # All protocols
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "default-vpc-sg-${random_id.sg_suffix.hex}"
   }
 }
 
@@ -87,7 +96,6 @@ resource "aws_security_group" "private-SG" {
     cidr_blocks = ["0.0.0.0/0"]  # Allow traffic from any IP address
   }
 
-
   # Ingress rule for SSH (port 22)
   ingress {
     from_port   = 22
@@ -117,22 +125,3 @@ resource "aws_security_group" "private-SG" {
     Name = "private-sg"
   }
 }
-
-/* Generate Key
-resource "tls_private_key" "rsa_4096" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-# Generate public Key 
-resource "aws_key_pair" "key_pair" {
-  key_name   = var.key_name
-  public_key = tls_private_key.rsa_4096.public_key_openssh
-}
-
-# PEM Key download in system
-resource "local_file" "private_key" {
-  content = tls_private_key.rsa_4096.private_key_pem
-  filename = var.key_name
-}
-*/
