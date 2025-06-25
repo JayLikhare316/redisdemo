@@ -105,12 +105,22 @@ pipeline {
             }
             steps {
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
                         echo "=== Running Ansible Playbook ==="
-                        export ANSIBLE_HOST_KEY_CHECKING=False
-                        ansible-playbook -i aws_ec2.yaml playbook.yml --private-key=$SSH_KEY
+                        
+                        # Use the key pair created during deployment
+                        if [ -f "my-key-aws.pem" ]; then
+                            chmod 400 my-key-aws.pem
+                            export ANSIBLE_HOST_KEY_CHECKING=False
+                            echo "Running Ansible with my-key-aws.pem"
+                            ansible-playbook -i aws_ec2.yaml playbook.yml --private-key=my-key-aws.pem
+                        else
+                            echo "Key file my-key-aws.pem not found. Skipping Ansible deployment."
+                            echo "You can run Ansible manually later with the key pair."
+                        fi
                     '''
                 }
             }
