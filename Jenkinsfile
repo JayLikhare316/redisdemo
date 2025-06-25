@@ -14,7 +14,7 @@ pipeline {
 
         stage('Clone Repository') {
             steps {
-                git url: 'https://github.com/JayLikhare316/redisdemo.git', branch: 'master'
+                git url: 'https://github.com/Poojabhanudevops/Redisdemo.git', branch: 'main'
             }
         }
 
@@ -33,8 +33,13 @@ pipeline {
                         terraform validate
 
                         echo "=== Terraform Plan ==="
-                        terraform plan
+                        terraform plan -out=tfplan
                     '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'terraform/tfplan', allowEmptyArchive: true
                 }
             }
         }
@@ -48,12 +53,35 @@ pipeline {
                     string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
-                    sh '''
-                        echo "=== Terraform ${action} ==="
-                        cd terraform/
-                        terraform ${action} --auto-approve
-                    '''
+                    script {
+                        if (params.action == 'apply') {
+                            sh '''
+                                echo "=== Terraform Apply ==="
+                                cd terraform/
+                                terraform apply tfplan
+                            '''
+                        } else if (params.action == 'destroy') {
+                            sh '''
+                                echo "=== Terraform Destroy ==="
+                                cd terraform/
+                                terraform destroy --auto-approve
+                            '''
+                        }
+                    }
                 }
+            }
+        }
+
+        stage('Wait for Infrastructure') {
+            when {
+                allOf {
+                    expression { return params.autoApprove }
+                    expression { return params.action == 'apply' }
+                }
+            }
+            steps {
+                echo "=== Waiting for infrastructure to be ready ==="
+                sleep time: 60, unit: 'SECONDS'
             }
         }
 
@@ -65,11 +93,29 @@ pipeline {
                 }
             }
             steps {
-                echo "=== Running Ansible Playbook ==="
-                sh '''
-                    ansible-playbook -i aws_ec2.yaml playbook.yml
-                '''
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')
+                ]) {
+                    sh '''
+                        echo "=== Running Ansible Playbook ==="
+                        export ANSIBLE_HOST_KEY_CHECKING=False
+                        ansible-playbook -i aws_ec2.yaml playbook.yml --private-key=$SSH_KEY
+                    '''
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        failure {
+            echo 'Pipeline failed!'
+            // Add notification logic here
+        }
+        success {
+            echo 'Pipeline completed successfully!'
         }
     }
 }
