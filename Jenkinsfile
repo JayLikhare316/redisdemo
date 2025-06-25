@@ -21,8 +21,8 @@ pipeline {
         stage('Plan') {
             steps {
                 withCredentials([
-                    usernamePassword(credentialsId: 'AWS_ACCESS_KEY_ID', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'TEMP_VAR1'),
-                    usernamePassword(credentialsId: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'TEMP_VAR2', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
                         echo "=== Terraform Init ==="
@@ -50,8 +50,8 @@ pipeline {
             }
             steps {
                 withCredentials([
-                    usernamePassword(credentialsId: 'AWS_ACCESS_KEY_ID', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'TEMP_VAR1'),
-                    usernamePassword(credentialsId: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'TEMP_VAR2', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     script {
                         if (params.action == 'apply') {
