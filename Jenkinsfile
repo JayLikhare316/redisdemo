@@ -1,4 +1,6 @@
 pipeline {
+    agent any
+
     parameters {
         booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
         choice(name: 'action', choices: ['apply', 'destroy'], description: 'Select the action to perform')
@@ -8,9 +10,8 @@ pipeline {
         AWS_DEFAULT_REGION = 'ap-south-1'
     }
 
-    agent any
-
     stages {
+
         stage('Clone Repository') {
             steps {
                 git url: 'https://github.com/Poojabhanudevops/Redisdemo.git', branch: 'main'
@@ -24,9 +25,14 @@ pipeline {
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
+                        echo "=== Terraform Init ==="
                         cd terraform/
                         terraform init
+
+                        echo "=== Terraform Validate ==="
                         terraform validate
+
+                        echo "=== Terraform Plan ==="
                         terraform plan
                     '''
                 }
@@ -35,7 +41,7 @@ pipeline {
 
         stage('Apply/Destroy') {
             when {
-                expression { return params.autoApprove } // only run if autoApprove is true
+                expression { return params.autoApprove }
             }
             steps {
                 withCredentials([
@@ -43,6 +49,7 @@ pipeline {
                     string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
+                        echo "=== Terraform ${action} ==="
                         cd terraform/
                         terraform ${action} --auto-approve
                     '''
@@ -52,11 +59,16 @@ pipeline {
 
         stage('Run Ansible Playbook') {
             when {
-                expression { return params.action == 'apply' }
+                allOf {
+                    expression { return params.autoApprove }
+                    expression { return params.action == 'apply' }
+                }
             }
             steps {
-                echo "Running Ansible Playbook..."
-                sh 'ansible-playbook -i aws_ec2.yaml playbook.yml'
+                echo "=== Running Ansible Playbook ==="
+                sh '''
+                    ansible-playbook -i aws_ec2.yaml playbook.yml
+                '''
             }
         }
     }
