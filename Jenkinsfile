@@ -2,10 +2,9 @@ pipeline {
     parameters {
         booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
         choice(name: 'action', choices: ['apply', 'destroy'], description: 'Select the action to perform')
-    } 
+    }
+
     environment {
-        AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
         AWS_DEFAULT_REGION = 'ap-south-1'
     }
 
@@ -20,31 +19,44 @@ pipeline {
 
         stage('Plan') {
             steps {
-                sh 'pwd;cd terraform/ ; terraform init'
-                sh 'pwd;cd terraform/ ; terraform validate'
-                sh 'pwd;cd terraform/ ; terraform plan'
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        cd terraform/
+                        terraform init
+                        terraform validate
+                        terraform plan
+                    '''
+                }
             }
         }
 
         stage('Apply/Destroy') {
+            when {
+                expression { return params.autoApprove } // only run if autoApprove is true
+            }
             steps {
-                sh 'pwd;cd terraform/ ; terraform ${action} --auto-approve'
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        cd terraform/
+                        terraform ${action} --auto-approve
+                    '''
+                }
             }
         }
 
-        // New stage to run the Ansible playbook after Apply
         stage('Run Ansible Playbook') {
             when {
-                expression {
-                    return params.action == 'apply'  // Run only if the action is 'apply'
-                }
+                expression { return params.action == 'apply' }
             }
             steps {
-                script {
-                    // Ensure that the Ansible playbook is executed only if terraform apply was successful
-                    echo "Running Ansible Playbook..."
-                    sh 'ansible-playbook -i aws_ec2.yaml playbook.yml'  // Playbook name
-                }
+                echo "Running Ansible Playbook..."
+                sh 'ansible-playbook -i aws_ec2.yaml playbook.yml'
             }
         }
     }
