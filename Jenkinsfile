@@ -14,7 +14,7 @@ pipeline {
 
         stage('Clone Repository') {
             steps {
-                git url: 'https://github.com/Poojabhanudevops/Redisdemo.git', branch: 'main'
+                git url: 'https://github.com/JayLikhare316/redisdemo.git', branch: 'master'
             }
         }
 
