@@ -1,0 +1,1 @@
+{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"instance","Source":"./instances","Dir":"instances"},{"Key":"network","Source":"./network","Dir":"network"},{"Key":"peering","Source":"./vpc_peering","Dir":"vpc_peering"}]}

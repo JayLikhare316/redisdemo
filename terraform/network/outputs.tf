@@ -22,3 +22,8 @@ output "private_security_group_id" {
   description = "The ID of the private security group."
   value       = aws_security_group.private.id
 }
+
+output "vpc_cidr" {
+  description = "The CIDR block of the VPC."
+  value       = aws_vpc.redis-VPC.cidr_block
+}

@@ -1,33 +1,19 @@
-#instenses ID
-output "pub-instance-id" {
-  value = aws_instance.redis-public.id
+output "public_instance_ids" {
+  description = "A list of IDs for the public instances."
+  value       = aws_instance.public[*].id
 }
 
-output "private-instance1-id" {
-  value = aws_instance.redis-private-1.id
+output "private_instance_ids" {
+  description = "A list of IDs for the private instances."
+  value       = aws_instance.private[*].id
 }
 
-output "private-instance2-id" {
-  value = aws_instance.redis-private-2
+output "public_instance_ips" {
+  description = "A list of public IP addresses for the public instances."
+  value       = aws_instance.public[*].public_ip
 }
 
-output "private-instance3-id" {
-  value = aws_instance.redis-private-3
-}
-
-# instences IP addresses
-output "public-instance-ip" {
-  value = aws_instance.redis-public.public_ip
-}
-
-output "private-instance1-ip" {
-  value = aws_instance.redis-private-1.private_ip
-}
-
-output "private-instance2-ip" {
-  value = aws_instance.redis-private-2.private_ip
-}
-
-output "private-instance3-ip" {
-  value = aws_instance.redis-private-3.private_ip
+output "private_instance_ips" {
+  description = "A list of private IP addresses for the private instances."
+  value       = aws_instance.private[*].private_ip
 }

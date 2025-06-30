@@ -1,60 +1,27 @@
 output "vpc_id" {
-  value = module.vpc.vpc_id
+  value = module.network.vpc_id
 }
 
-output "public-subnet-id" {
-  value = module.subnet.pub-sub-id
+output "public_subnet_ids" {
+  value = module.network.public_subnet_ids
 }
 
-output "private-subnet1-id" {
-  value = module.subnet.pri-sub-1-id
+output "private_subnet_ids" {
+  value = module.network.private_subnet_ids
 }
 
-output "private-subnet2-id" {
-  value = module.subnet.pri-sub-2-id
+output "public_security_group_id" {
+  value = module.network.public_security_group_id
 }
 
-output "private-subnet3-id" {
-  value = module.subnet.pri-sub-3-id
-}
-output "public-security-groups" {
-  value = module.security_groups.public-sg-id
+output "private_security_group_id" {
+  value = module.network.private_security_group_id
 }
 
-output "private-security-groups" {
-  value = module.security_groups.private-sg-id
+output "public_instance_ips" {
+  value = module.instance.public_instance_ips
 }
 
-# Instance ID
-output "private-instance1-id" {
-  value = module.instance.private-instance1-id
-}
-
-output "private-instance2-id" {
-  value = module.instance.private-instance2-id
-}
-
-output "private-instance3-id" {
-  value = module.instance.private-instance3-id
-}
-
-output "public-instance-id" {
-  value = module.instance.public-instance-ip
-}
-
-# Instance IP Address
-output "private-instance1-ip" {
-  value = module.instance.private-instance1-ip
-}
-
-
-output "private-instance2-ip" {
-  value = module.instance.private-instance2-ip
-}
-
-output "private-instance3-ip" {
-  value = module.instance.private-instance3-ip
-}
-output "public-instance-ip" {
-  value = module.instance.public-instance-ip
+output "private_instance_ips" {
+  value = module.instance.private_instance_ips
 }

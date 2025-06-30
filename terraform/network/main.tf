@@ -117,7 +117,7 @@ resource "aws_security_group" "public" {
 resource "aws_security_group" "private" {
   name        = "private-sg"
   description = "Allow Redis and SSH traffic"
-  vpc_id      = aws_vpc.redis-VPC..id
+  vpc_id      = aws_vpc.redis-VPC.id
 
   ingress {
     from_port   = 6379
