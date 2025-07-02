@@ -1,1 +1,31 @@
+# Ignore Terraform provider binaries
+.terraform/providers/
+# Ignore Terraform state files
+*.tfstate
+*.tfstate.backup
+# Ignore Terraform crash log files
+crash.log
+# Ignore Terraform .terraform directory
+.terraform/
+# Ignore Ansible temporary files
+.ansible/
+# Ignore Python virtual environment
+.venv/
+venv/
+# Ignore IDE files
+.idea/
+.vscode/
+# Ignore logs
+*.log
+# Ignore sensitive files
 *.pem
+# Ignore drawing files
+*.drawio.png
+# Ignore architecture diagram files
+*.pyc
+__pycache__/
+# Ignore Jenkins build artifacts
+target/
+build/
+# Ignore local environment variables
+.env
