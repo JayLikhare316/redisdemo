@@ -1,447 +1,187 @@
-# Redis Infrastructure Deployment - End-to-End Guide
+# Redis Infrastructure Deployment on AWS
 
-## 📋 Table of Contents
-- [Overview](#overview)
+This project provides a robust and automated solution for deploying a Redis infrastructure on Amazon Web Services (AWS). It leverages Terraform for infrastructure provisioning and Ansible for Redis installation and configuration, ensuring a scalable, secure, and easily manageable setup.
+
+## Table of Contents
+
 - [Architecture](#architecture)
+- [Features](#features)
 - [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Deployment Methods](#deployment-methods)
-- [Troubleshooting](#troubleshooting)
-- [Infrastructure Details](#infrastructure-details)
-- [Post-Deployment](#post-deployment)
+- [Setup and Configuration](#setup-and-configuration)
+- [Deployment](#deployment)
+  - [Manual Deployment](#manual-deployment)
+  - [CI/CD with Jenkins](#cicd-with-jenkins)
+- [Usage](#usage)
 - [Cleanup](#cleanup)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
-## 🎯 Overview
+## Architecture
 
-This project deploys a complete Redis infrastructure on AWS using Infrastructure as Code (IaC) with Terraform and configuration management with Ansible. The setup includes:
+The infrastructure is designed to be highly available and secure, utilizing AWS services to host Redis instances. Key components include:
 
-- **Custom VPC** with public and private subnets across multiple AZs
-- **4 EC2 instances**: 1 bastion host + 3 Redis nodes for clustering
-- **Security groups** with proper Redis port configurations
-- **NAT Gateway** for private subnet internet access
-- **VPC Peering** for cross-VPC communication
-- **Automated deployment** via Jenkins CI/CD pipeline
+-   **Virtual Private Cloud (VPC):** A logically isolated section of the AWS Cloud where you can launch AWS resources.
+-   **Subnets:** Public and private subnets within the VPC to control network access.
+-   **EC2 Instances:** Amazon EC2 instances serve as the hosts for the Redis servers.
+-   **Security Groups:** Act as virtual firewalls to control inbound and outbound traffic to the EC2 instances.
+-   **VPC Peering (Optional):** Allows for private connectivity between two VPCs, enabling communication between instances in different VPCs as if they were within the same network.
 
-## 🏗️ Architecture
+![Redis Infrastructure Architecture](redis-infra.drawio.png)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Custom VPC (10.0.0.0/16)               │
-├─────────────────────────────────────────────────────────────┤
-│  Public Subnet (10.0.1.0/24)                              │
-│  ┌─────────────────┐                                       │
-│  │  Bastion Host   │ ← SSH Access                          │
-│  │  (Public IP)    │                                       │
-│  └─────────────────┘                                       │
-├─────────────────────────────────────────────────────────────┤
-│  Private Subnets                                           │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐│
-│  │ Redis Node 1    │ │ Redis Node 2    │ │ Redis Node 3    ││
-│  │ (10.0.2.0/24)   │ │ (10.0.3.0/24)   │ │ (10.0.4.0/24)   ││
-│  │ ap-south-1a     │ │ ap-south-1b     │ │ ap-south-1c     ││
-│  └─────────────────┘ └─────────────────┘ └─────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-```
+## Features
 
-## 🔧 Prerequisites
+-   **Automated Infrastructure Provisioning:** Uses Terraform to define and provision all necessary AWS resources.
+-   **Automated Redis Deployment:** Employs Ansible to install, configure, and manage Redis on EC2 instances.
+-   **Scalable:** Easily adjust the number of Redis instances by modifying Terraform variables.
+-   **Secure:** Configures security groups to restrict access to Redis ports.
+-   **Idempotent Deployments:** Both Terraform and Ansible ensure that deployments are repeatable and consistent.
+-   **CI/CD Integration:** Includes a Jenkinsfile for automated deployment pipelines.
 
-### Required Tools
-- **AWS CLI** (configured with credentials)
-- **Terraform** (>= 1.0)
-- **Ansible** (>= 2.9)
-- **Git**
-- **Jenkins** (for CI/CD deployment)
+## Prerequisites
 
-### AWS Requirements
-- AWS Account with appropriate permissions
-- AWS CLI configured with access keys
-- Sufficient service limits:
-  - VPCs: At least 1 available
-  - Elastic IPs: At least 1 available
-  - EC2 instances: At least 4 t3.micro instances
+Before you begin, ensure you have the following installed and configured:
 
-### Jenkins Setup (for CI/CD)
-- Jenkins server with required plugins:
-  - Git plugin
-  - AWS CLI plugin
-  - Ansible plugin
-- AWS credentials configured in Jenkins:
-  - `AWS_ACCESS_KEY_ID`
-  - `AWS_SECRET_ACCESS_KEY`
+-   **AWS Account:** An active AWS account.
+-   **AWS CLI:** Configured with appropriate credentials and default region.
+    ```bash
+    aws configure
+    ```
+-   **Terraform:** [Install Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli)
+-   **Ansible:** [Install Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
+-   **SSH Key Pair:** An AWS EC2 key pair for SSH access to instances. Ensure the private key (`.pem` file) is accessible.
+-   **Jenkins (Optional):** If you plan to use the CI/CD pipeline.
+-   **Docker (Optional):** If you plan to run Jenkins in a Docker container.
 
-## 🚀 Quick Start
+## Setup and Configuration
 
-### Method 1: Automated Deployment (Recommended)
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/your-repo/redisdemo.git
+    cd redisdemo
+    ```
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/JayLikhare316/redisdemo.git
-   cd redisdemo
-   ```
+2.  **AWS Credentials:**
+    Ensure your AWS CLI is configured with credentials that have permissions to create EC2 instances, VPCs, security groups, etc.
 
-2. **Run the automated deployment script:**
-   ```bash
-   ./deploy-infrastructure.sh
-   ```
+3.  **Terraform Configuration:**
+    Navigate to the `terraform/` directory.
+    ```bash
+    cd terraform/
+    ```
+    Review and modify the `variables.tf` file to suit your needs. Key variables include:
+    -   `aws_region`: Your desired AWS region.
+    -   `instance_type`: EC2 instance type for Redis servers.
+    -   `key_name`: The name of your AWS EC2 key pair.
+    -   `vpc_cidr_block`: CIDR block for your VPC.
+    -   `public_subnet_cidr_block` and `private_subnet_cidr_block`: CIDR blocks for your subnets.
 
-### Method 2: Jenkins CI/CD Pipeline
+    Initialize Terraform:
+    ```bash
+    terraform init
+    ```
 
-1. **Set up Jenkins job:**
-   - Create new Pipeline job
-   - Configure SCM: `https://github.com/JayLikhare316/redisdemo.git`
-   - Enable SCM polling: `H/5 * * * *` (every 5 minutes)
+4.  **Ansible Inventory:**
+    The Ansible playbooks expect a dynamic inventory. After Terraform creates the EC2 instances, you will need to update your Ansible inventory file (e.g., `ansible/inventory.ini` or use `aws_ec2.yaml` for dynamic inventory) with the public IP addresses of the newly created instances.
 
-2. **Configure Jenkins credentials:**
-   - Add AWS credentials with IDs: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+    Example `ansible/inventory.ini` (after Terraform deployment):
+    ```ini
+    [redis_servers]
+    <public_ip_1> ansible_user=ec2-user ansible_ssh_private_key_file=/path/to/your/key.pem
+    <public_ip_2> ansible_user=ec2-user ansible_ssh_private_key_file=/path/to/your/key.pem
+    ```
+    Alternatively, you can use the `aws_ec2.yaml` file for dynamic inventory. Ensure you have the `boto3` and `botocore` Python libraries installed for dynamic inventory to work.
 
-3. **Run the pipeline:**
-   - Choose parameters: `action=apply`, `autoApprove=true`
-   - Pipeline will automatically handle key pair creation and deployment
+## Deployment
 
-## ⚙️ Configuration
+### Manual Deployment
 
-### Key Configuration Files
+1.  **Provision Infrastructure with Terraform:**
+    From the `terraform/` directory:
+    ```bash
+    terraform plan
+    terraform apply --auto-approve
+    ```
+    This will output the public IP addresses of your EC2 instances.
 
-#### 1. Terraform Variables (`terraform/instances/variable.tf`)
-```hcl
-variable "key-name" {
-  type = string
-  default = "my-key-aws"  # ← Change this to your preferred key name
-}
+2.  **Configure Redis with Ansible:**
+    Update your Ansible inventory with the public IPs from the Terraform output.
+    Navigate back to the project root directory.
+    ```bash
+    cd ..
+    ```
+    Run the Ansible playbook:
+    ```bash
+    ansible-playbook -i ansible/aws_ec2.yaml playbook.yml --private-key /path/to/your/key.pem
+    ```
+    (Replace `/path/to/your/key.pem` with the actual path to your private key).
 
-variable "instance-type" {
-  type = string
-  default = "t3.micro"    # ← Change for different instance sizes
-}
+### CI/CD with Jenkins
 
-variable "ami-id" {
-  type = string
-  default = "ami-09b0a86a2c84101e1"  # ← Ubuntu 22.04 LTS (ap-south-1)
-}
-```
+The `Jenkinsfile` in the root directory defines a CI/CD pipeline for automated deployment. This pipeline typically includes stages for:
 
-#### 2. AWS Region Configuration (`terraform/provider.tf`)
-```hcl
-provider "aws" {
-  region = "ap-south-1"  # ← Change to your preferred region
-}
-```
+-   **Terraform Plan:** Generates an execution plan.
+-   **Terraform Apply:** Applies the infrastructure changes.
+-   **Ansible Playbook:** Runs the Ansible playbook to configure Redis.
 
-#### 3. VPC Configuration (`terraform/vpc/main.tf`)
-```hcl
-resource "aws_vpc" "redis-VPC" {
-  cidr_block = "10.0.0.0/16"  # ← Modify CIDR if needed
-  # ... other configurations
-}
-```
+To use the Jenkins pipeline:
 
-### Required Changes for Different Environments
+1.  Set up a Jenkins server.
+2.  Install necessary Jenkins plugins (e.g., Pipeline, AWS CLI, SSH Agent).
+3.  Configure AWS credentials in Jenkins.
+4.  Create a new Pipeline job in Jenkins, pointing to the `Jenkinsfile` in your repository.
+5.  Trigger the build to deploy the infrastructure and Redis.
 
-#### For Different AWS Regions:
-1. Update `provider.tf` with your region
-2. Update AMI ID in `terraform/instances/variable.tf` for your region
-3. Update availability zones in subnet configurations
+## Usage
 
-#### For Different Instance Types:
-1. Modify `instance-type` in `terraform/instances/variable.tf`
-2. Ensure your AWS account has limits for the chosen instance type
+Once Redis is deployed, you can connect to your Redis instances using the `redis-cli` or any Redis client library.
 
-#### For Different Network Configuration:
-1. Update CIDR blocks in VPC and subnet configurations
-2. Modify security group rules if needed
-3. Update route table configurations
+1.  **SSH into an EC2 instance:**
+    ```bash
+    ssh -i /path/to/your/key.pem ec2-user@<public_ip_of_redis_instance>
+    ```
 
-## 🚀 Deployment Methods
+2.  **Connect to Redis:**
+    ```bash
+    redis-cli
+    ```
+    You can then run Redis commands, e.g., `SET mykey "Hello Redis"`, `GET mykey`.
 
-### Method 1: Manual Terraform Deployment
+## Cleanup
 
+To destroy all the AWS resources provisioned by Terraform:
+
+From the `terraform/` directory:
 ```bash
-# 1. Initialize Terraform
-cd terraform
-terraform init
-
-# 2. Create execution plan
-terraform plan -out=tfplan
-
-# 3. Apply the plan
-terraform apply tfplan
-
-# 4. Run Ansible configuration
-cd ..
-ansible-playbook -i aws_ec2.yaml playbook.yml --private-key=my-key-aws.pem
-```
-
-### Method 2: Using Deployment Script
-
-```bash
-# Single command deployment
-./deploy-infrastructure.sh
-```
-
-### Method 3: Jenkins Pipeline
-
-1. **Trigger via SCM polling** (automatic on git push)
-2. **Manual trigger** with parameters:
-   - `action`: `apply` or `destroy`
-   - `autoApprove`: `true` or `false`
-
-## 🔧 Troubleshooting
-
-### Common Issues and Solutions
-
-#### 1. AWS Service Limits Exceeded
-**Error:** `VpcLimitExceeded` or `AddressLimitExceeded`
-
-**Solution:**
-```bash
-# Run cleanup script to free resources
-./quick-cleanup.sh
-
-# Or interactive cleanup
-./cleanup-aws-resources.sh
-```
-
-#### 2. Key Pair Not Found
-**Error:** `InvalidKeyPair.NotFound`
-
-**Solution:** The deployment automatically creates the key pair. If manual creation is needed:
-```bash
-aws ec2 create-key-pair --key-name my-key-aws --region ap-south-1 --query 'KeyMaterial' --output text > my-key-aws.pem
-chmod 400 my-key-aws.pem
-```
-
-#### 3. Security Group Conflicts
-**Error:** `InvalidGroup.Duplicate`
-
-**Solution:** The configuration uses random suffixes to avoid conflicts. If issues persist:
-```bash
-# Clean up conflicting security groups
-aws ec2 describe-security-groups --region ap-south-1 --filters "Name=group-name,Values=default-vpc-sg*" --query 'SecurityGroups[].GroupId' --output text | xargs -I {} aws ec2 delete-security-group --group-id {}
-```
-
-#### 4. Route Already Exists
-**Error:** `RouteAlreadyExists`
-
-**Solution:** The VPC peering route creation is commented out to avoid conflicts. VPC peering still works for connectivity.
-
-### Debug Commands
-
-```bash
-# Check AWS credentials
-aws sts get-caller-identity
-
-# Verify Terraform state
-terraform show
-
-# Check deployed resources
-terraform output
-
-# Validate Ansible inventory
-ansible-inventory -i aws_ec2.yaml --list
-```
-
-## 🏗️ Infrastructure Details
-
-### Created Resources
-
-| Resource Type | Count | Purpose |
-|---------------|-------|---------|
-| VPC | 1 | Custom network environment |
-| Subnets | 4 | 1 public, 3 private across AZs |
-| EC2 Instances | 4 | 1 bastion + 3 Redis nodes |
-| Security Groups | 3 | Network access control |
-| NAT Gateway | 1 | Internet access for private subnets |
-| Internet Gateway | 1 | Internet access for public subnet |
-| Elastic IP | 1 | Static IP for NAT Gateway |
-| Route Tables | 2 | Network routing configuration |
-| VPC Peering | 1 | Cross-VPC communication |
-
-### Security Configuration
-
-#### Public Security Group (Bastion)
-- **SSH (22)**: 0.0.0.0/0
-- **HTTP (80)**: 0.0.0.0/0
-- **ICMP**: 172.31.0.0/16, 0.0.0.0/0
-
-#### Private Security Group (Redis Nodes)
-- **Redis (6379)**: 0.0.0.0/0
-- **Redis Cluster (16379-16384)**: 0.0.0.0/0
-- **SSH (22)**: 172.31.0.0/16, 0.0.0.0/0
-- **ICMP**: 172.31.0.0/16, 0.0.0.0/0
-
-## 📋 Post-Deployment
-
-### Access Your Infrastructure
-
-#### 1. Connect to Bastion Host
-```bash
-ssh -i my-key-aws.pem ubuntu@<PUBLIC_IP>
-```
-
-#### 2. Connect to Redis Nodes (via Bastion)
-```bash
-# Direct jump connection
-ssh -i my-key-aws.pem -J ubuntu@<BASTION_IP> ubuntu@<REDIS_NODE_IP>
-
-# Or through bastion
-ssh -i my-key-aws.pem ubuntu@<BASTION_IP>
-# Then from bastion:
-ssh ubuntu@<REDIS_NODE_PRIVATE_IP>
-```
-
-#### 3. Get Resource Information
-```bash
-# From terraform directory
-terraform output
-
-# Example output:
-# public-instance-ip = "15.206.163.194"
-# private-instance1-ip = "10.0.2.219"
-# private-instance2-ip = "10.0.3.185"
-# private-instance3-ip = "10.0.4.189"
-```
-
-### Redis Cluster Setup
-
-After infrastructure deployment, configure Redis clustering:
-
-```bash
-# On each Redis node, install Redis
-sudo apt update
-sudo apt install redis-server -y
-
-# Configure Redis for clustering
-sudo nano /etc/redis/redis.conf
-# Uncomment and modify:
-# cluster-enabled yes
-# cluster-config-file nodes.conf
-# cluster-node-timeout 5000
-
-# Restart Redis
-sudo systemctl restart redis-server
-
-# Create cluster (run from any node)
-redis-cli --cluster create \
-  10.0.2.219:6379 \
-  10.0.3.185:6379 \
-  10.0.4.189:6379 \
-  --cluster-replicas 0
-```
-
-## 🧹 Cleanup
-
-### Destroy Infrastructure
-
-#### Method 1: Terraform
-```bash
-cd terraform
 terraform destroy --auto-approve
 ```
 
-#### Method 2: Jenkins Pipeline
-- Set parameter: `action=destroy`
-- Run the pipeline
+## Troubleshooting
 
-#### Method 3: AWS Resource Cleanup
-```bash
-# Clean up all resources including orphaned ones
-./cleanup-aws-resources.sh
-```
+-   **SSH Connection Issues:**
+    -   Ensure your security group allows inbound SSH (port 22) from your IP address.
+    -   Verify your SSH key pair is correct and has the right permissions (`chmod 400 /path/to/your/key.pem`).
+    -   Check the instance status in the AWS EC2 console.
+-   **Ansible Connection Issues:**
+    -   Ensure the EC2 instances are running and reachable via SSH.
+    -   Verify the `ansible_user` and `ansible_ssh_private_key_file` in your inventory are correct.
+    -   Check if Python is installed on the EC2 instances (Ansible requires Python).
+-   **Redis Not Running:**
+    -   SSH into the instance and check Redis logs (e.g., `/var/log/redis/redis-server.log`).
+    -   Verify the Redis service status: `sudo systemctl status redis`.
+    -   Check the Redis configuration file (`/etc/redis/redis.conf` or as defined in `ansible/roles/redis/templates/redis.conf.j2`).
 
-### Cleanup Scripts
+## Contributing
 
-| Script | Purpose |
-|--------|---------|
-| `quick-cleanup.sh` | Automated cleanup of unused VPCs and EIPs |
-| `cleanup-aws-resources.sh` | Interactive cleanup with confirmation |
-| `cleanup-conflicts.sh` | Clean up conflicting security groups and routes |
+Contributions are welcome! Please follow these steps:
 
-## 📁 Project Structure
+1.  Fork the repository.
+2.  Create a new branch (`git checkout -b feature/your-feature-name`).
+3.  Make your changes.
+4.  Commit your changes (`git commit -m 'Add new feature'`).
+5.  Push to the branch (`git push origin feature/your-feature-name`).
+6.  Open a Pull Request.
 
-```
-redisdemo/
-├── terraform/                 # Terraform infrastructure code
-│   ├── main.tf               # Main configuration
-│   ├── provider.tf           # AWS provider configuration
-│   ├── variable.tf           # Global variables
-│   ├── output.tf             # Output definitions
-│   ├── backend.tf            # State backend configuration
-│   ├── instances/            # EC2 instance module
-│   ├── vpc/                  # VPC module
-│   ├── subnets/              # Subnet module
-│   ├── security_group/       # Security group module
-│   └── vpc_peering/          # VPC peering module
-├── ansible/                  # Ansible configuration
-│   └── roles/                # Ansible roles
-├── aws_ec2.yaml             # Ansible AWS inventory
-├── playbook.yml             # Main Ansible playbook
-├── Jenkinsfile              # Jenkins pipeline definition
-├── deploy-infrastructure.sh  # Automated deployment script
-├── cleanup-aws-resources.sh # Resource cleanup script
-├── quick-cleanup.sh         # Quick automated cleanup
-└── README.md               # This file
-```
+## License
 
-## 🔗 Useful Commands
-
-### AWS CLI Commands
-```bash
-# List all VPCs
-aws ec2 describe-vpcs --region ap-south-1
-
-# List all instances
-aws ec2 describe-instances --region ap-south-1
-
-# List Elastic IPs
-aws ec2 describe-addresses --region ap-south-1
-
-# Check service limits
-aws service-quotas get-service-quota --service-code ec2 --quota-code L-F678F1CE
-```
-
-### Terraform Commands
-```bash
-# Format code
-terraform fmt
-
-# Validate configuration
-terraform validate
-
-# Show current state
-terraform show
-
-# List resources
-terraform state list
-
-# Import existing resource
-terraform import aws_instance.example i-1234567890abcdef0
-```
-
-### Ansible Commands
-```bash
-# Test connectivity
-ansible all -i aws_ec2.yaml -m ping
-
-# Run specific playbook
-ansible-playbook -i aws_ec2.yaml playbook.yml --tags redis
-
-# Check inventory
-ansible-inventory -i aws_ec2.yaml --graph
-```
-
-## 📞 Support
-
-For issues and questions:
-1. Check the [Troubleshooting](#troubleshooting) section
-2. Review AWS CloudTrail logs for API errors
-3. Check Jenkins build logs for pipeline issues
-4. Verify AWS service limits and quotas
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-**Happy Deploying! 🚀**
+This project is licensed under the MIT License - see the `LICENSE` file for details. (Note: A `LICENSE` file is not currently present in the repository. Consider adding one.)
